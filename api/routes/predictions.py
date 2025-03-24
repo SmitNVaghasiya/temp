@@ -1,4 +1,4 @@
-from fastapi import APIRouter, File, UploadFile, HTTPException, Depends
+from fastapi import APIRouter, File, UploadFile, HTTPException, Depends, Form
 from services.predictor import get_predictor, predict_compatibility
 from services.database import save_prediction, get_prediction_by_id
 from api.dependencies import get_current_user
@@ -15,8 +15,8 @@ predictor = get_predictor(
 async def predict(
     face: UploadFile = File(...),
     jewelry: UploadFile = File(...),
-    face_image_path: str = Form(...),  # Local path of face image
-    jewelry_image_path: str = Form(...),  # Local path of jewelry image
+    face_image_path: str = Form(...),
+    jewelry_image_path: str = Form(...),
     current_user: dict = Depends(get_current_user)
 ):
     global predictor
@@ -52,8 +52,8 @@ async def predict(
             category=category,
             recommendations=recommendations,
             user_id=str(current_user["_id"]),
-            face_image_path=face_image_path,  # Save the local path
-            jewelry_image_path=jewelry_image_path  # Save the local path
+            face_image_path=face_image_path,
+            jewelry_image_path=jewelry_image_path
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save prediction: {str(e)}")
