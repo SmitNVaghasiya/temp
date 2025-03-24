@@ -15,6 +15,8 @@ predictor = get_predictor(
 async def predict(
     face: UploadFile = File(...),
     jewelry: UploadFile = File(...),
+    face_image_path: str = Form(...),  # Local path of face image
+    jewelry_image_path: str = Form(...),  # Local path of jewelry image
     current_user: dict = Depends(get_current_user)
 ):
     global predictor
@@ -45,7 +47,14 @@ async def predict(
         raise HTTPException(status_code=500, detail="Prediction failed")
 
     try:
-        prediction_id = save_prediction(score, category, recommendations, str(current_user["_id"]))
+        prediction_id = save_prediction(
+            score=score,
+            category=category,
+            recommendations=recommendations,
+            user_id=str(current_user["_id"]),
+            face_image_path=face_image_path,  # Save the local path
+            jewelry_image_path=jewelry_image_path  # Save the local path
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save prediction: {str(e)}")
     
@@ -54,12 +63,14 @@ async def predict(
         "score": score,
         "category": category,
         "recommendations": recommendations,
+        "face_image_path": face_image_path,
+        "jewelry_image_path": jewelry_image_path
     }
 
 @router.get("/get_prediction/{prediction_id}")
 async def get_prediction(
     prediction_id: str,
-    current_user: dict = Depends(get_current_user)  # Explicitly added authentication
+    current_user: dict = Depends(get_current_user)
 ):
     try:
         result = get_prediction_by_id(prediction_id, str(current_user["_id"]))

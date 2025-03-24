@@ -9,7 +9,6 @@ router = APIRouter(prefix="/history", tags=["history"])
 async def get_user_history(current_user: dict = Depends(get_current_user)):
     client = get_db_client()
     if not client:
-        # Return JSON error instead of raising exception directly
         return {"error": "Database connection error"}
 
     try:
@@ -17,7 +16,6 @@ async def get_user_history(current_user: dict = Depends(get_current_user)):
         predictions_cursor = db["recommendations"].find({"user_id": ObjectId(current_user["_id"])})
         predictions = list(predictions_cursor.sort("timestamp", -1))
     except Exception as e:
-        # Return JSON error instead of raising HTTPException with string detail
         return {"error": "Database error: " + str(e)}
 
     if not predictions:
@@ -29,16 +27,13 @@ async def get_user_history(current_user: dict = Depends(get_current_user)):
         formatted_recommendations = []
         for item in recommendations:
             if isinstance(item, str):
-                # If stored as a string, assume it's the name and set url to None
                 formatted_recommendations.append({"name": item, "url": None})
             elif isinstance(item, dict) and "name" in item:
-                # If already a dict, use it as-is with optional url
                 formatted_recommendations.append({
                     "name": item["name"],
                     "url": item.get("url", None)
                 })
             else:
-                # Handle unexpected types by converting to string
                 formatted_recommendations.append({"name": str(item), "url": None})
 
         results.append({
@@ -46,6 +41,8 @@ async def get_user_history(current_user: dict = Depends(get_current_user)):
             "score": pred["score"],
             "category": pred["category"],
             "recommendations": formatted_recommendations,
+            "face_image_path": pred.get("face_image_path"),  # Include face image path
+            "jewelry_image_path": pred.get("jewelry_image_path"),  # Include jewelry image path
             "timestamp": pred["timestamp"]
         })
 

@@ -1,11 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
-from services.database import get_db_client  # Using MongoDB client
+from services.database import get_db_client
 from services.auth import hash_password, create_access_token, verify_password
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 import logging
+from twilio.rest import Client
+from twilio.base.exceptions import TwilioRestException
+import random
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -14,12 +17,18 @@ logger = logging.getLogger(__name__)
 # Create APIRouter with prefix and tags
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+# Twilio configuration
+TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
+TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
+TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER")
+twilio_client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN) if TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN else None
+
 # Pydantic models
 class UserRegister(BaseModel):
     username: str
     mobileNo: str
     password: str
-    otp: str  # Still included for compatibility with Flutter, but not verified server-side
+    otp: str
 
 class UserOut(BaseModel):
     id: str
@@ -30,6 +39,10 @@ class UserOut(BaseModel):
 
 class OtpRequest(BaseModel):
     mobileNo: str
+
+class OtpVerify(BaseModel):
+    mobileNo: str
+    otp: str
 
 # --- Endpoints ---
 
@@ -47,17 +60,69 @@ async def check_user(mobile_no: str):
 
 @router.post("/send-otp")
 async def send_otp(request: OtpRequest):
-    """Placeholder endpoint for sending OTP (handled by Firebase, not FastAPI)."""
+    """Send OTP using Twilio."""
+    if not twilio_client:
+        logger.error("Twilio client not initialized. Check environment variables.")
+        raise HTTPException(status_code=500, detail="Twilio configuration error")
+
+    otp = str(random.randint(100000, 999999))  # Generate a 6-digit OTP
     try:
-        logger.info(f"Request to send OTP for {request.mobileNo} - Handled by Firebase")
-        return {"message": "OTP sending initiated (handled by Firebase)"}
+        message = twilio_client.messages.create(
+            body=f"Your Jewelify OTP is {otp}",
+            from_=TWILIO_PHONE_NUMBER,
+            to=request.mobileNo
+        )
+        logger.info(f"OTP sent to {request.mobileNo}: {message.sid}")
+    except TwilioRestException as e:
+        logger.error(f"Twilio error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to send OTP: {str(e)}")
+
+    # Store OTP in MongoDB temporarily
+    try:
+        client = get_db_client()
+        db = client["jewelify"]
+        db["otps"].delete_one({"mobileNo": request.mobileNo})  # Remove old OTP
+        db["otps"].insert_one({
+            "mobileNo": request.mobileNo,
+            "otp": otp,
+            "created_at": datetime.utcnow().isoformat(),
+            "expires_at": (datetime.utcnow() + timedelta(minutes=10)).isoformat()  # OTP expires in 10 minutes
+        })
     except Exception as e:
-        logger.error(f"Error processing OTP request: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to process OTP request: {str(e)}")
+        logger.error(f"Error storing OTP: {e}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+    return {"message": "OTP sent successfully"}
+
+@router.post("/verify-otp")
+async def verify_otp(request: OtpVerify):
+    """Verify the OTP sent to the user's mobile number."""
+    try:
+        client = get_db_client()
+        db = client["jewelify"]
+        otp_record = db["otps"].find_one({"mobileNo": request.mobileNo})
+        if not otp_record:
+            raise HTTPException(status_code=400, detail="OTP not found or expired")
+
+        # Check if OTP has expired
+        expires_at = datetime.fromisoformat(otp_record["expires_at"])
+        if datetime.utcnow() > expires_at:
+            db["otps"].delete_one({"mobileNo": request.mobileNo})
+            raise HTTPException(status_code=400, detail="OTP has expired")
+
+        if otp_record["otp"] != request.otp:
+            raise HTTPException(status_code=400, detail="Invalid OTP")
+
+        # OTP is valid, delete it from the database
+        db["otps"].delete_one({"mobileNo": request.mobileNo})
+        return {"message": "OTP verified successfully"}
+    except Exception as e:
+        logger.error(f"Error verifying OTP: {e}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 @router.post("/register", response_model=UserOut)
 async def register(user: UserRegister):
-    """Register a new user after Firebase OTP verification, using MongoDB."""
+    """Register a new user after OTP verification, using MongoDB."""
     try:
         client = get_db_client()
         db = client["jewelify"]
@@ -71,13 +136,10 @@ async def register(user: UserRegister):
     if db["users"].find_one({"mobileNo": user.mobileNo}):
         raise HTTPException(status_code=400, detail="Mobile number already exists")
 
-    # Skip server-side OTP verification since Firebase handles it
-    # The Flutter app ensures OTP verification with Firebase before calling this endpoint
-
     # Hash password
     hashed_password = hash_password(user.password)
     
-    # Save user data (no OTP stored in MongoDB)
+    # Save user data
     user_data = {
         "username": user.username,
         "mobileNo": user.mobileNo,

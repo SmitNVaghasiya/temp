@@ -40,7 +40,7 @@ def rebuild_client():
         logger.error(f"🚨 Failed to rebuild MongoDB client: {e}")
         return False
 
-def save_prediction(score, category, recommendations, user_id):
+def save_prediction(score, category, recommendations, user_id, face_image_path, jewelry_image_path):
     client = get_db_client()
     if not client:
         logger.warning("⚠️ No MongoDB client available, attempting to rebuild")
@@ -56,6 +56,8 @@ def save_prediction(score, category, recommendations, user_id):
             "score": score,
             "category": category,
             "recommendations": recommendations,
+            "face_image_path": face_image_path,  # Store the local path
+            "jewelry_image_path": jewelry_image_path,  # Store the local path
             "timestamp": datetime.utcnow().isoformat()
         }
         result = collection.insert_one(prediction)
@@ -92,10 +94,10 @@ def get_prediction_by_id(prediction_id, user_id):
             image_doc = images_collection.find_one({"name": name})
             url = None
             if image_doc and "url" in image_doc:
-                url = image_doc["url"]  # Use the URL directly from the database
+                url = image_doc["url"]
             image_data.append({
                 "name": name,
-                "url": url  # No fallback URL; rely on S3 URL
+                "url": url
             })
 
         result = {
@@ -103,6 +105,8 @@ def get_prediction_by_id(prediction_id, user_id):
             "score": prediction["score"],
             "category": prediction["category"],
             "recommendations": image_data,
+            "face_image_path": prediction.get("face_image_path"),
+            "jewelry_image_path": prediction.get("jewelry_image_path"),
             "timestamp": prediction["timestamp"]
         }
         logger.info(f"✅ Retrieved prediction with ID: {prediction_id} for user {user_id}")
@@ -137,10 +141,10 @@ def get_user_predictions(user_id):
                 image_doc = images_collection.find_one({"name": name})
                 url = None
                 if image_doc and "url" in image_doc:
-                    url = image_doc["url"]  # Use the URL directly from the database
+                    url = image_doc["url"]
                 image_data.append({
                     "name": name,
-                    "url": url  # No fallback URL; rely on S3 URL
+                    "url": url
                 })
 
             results.append({
@@ -148,6 +152,8 @@ def get_user_predictions(user_id):
                 "score": prediction["score"],
                 "category": prediction["category"],
                 "recommendations": image_data,
+                "face_image_path": prediction.get("face_image_path"),
+                "jewelry_image_path": prediction.get("jewelry_image_path"),
                 "timestamp": prediction["timestamp"]
             })
 
