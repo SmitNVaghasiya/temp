@@ -27,22 +27,35 @@ async def get_user_history(current_user: dict = Depends(get_current_user)):
         formatted_recommendations = []
         for item in recommendations:
             if isinstance(item, str):
-                formatted_recommendations.append({"name": item, "url": None})
-            elif isinstance(item, dict) and "name" in item:
+                # Backward compatibility for old data
                 formatted_recommendations.append({
-                    "name": item["name"],
-                    "url": item.get("url", None)
+                    "name": item,
+                    "url": None,
+                    "score": None,
+                    "category": None
+                })
+            elif isinstance(item, dict):
+                formatted_recommendations.append({
+                    "name": item.get("name", ""),
+                    "url": item.get("url", None),
+                    "score": item.get("score", None),
+                    "category": item.get("category", None)
                 })
             else:
-                formatted_recommendations.append({"name": str(item), "url": None})
+                formatted_recommendations.append({
+                    "name": str(item),
+                    "url": None,
+                    "score": None,
+                    "category": None
+                })
 
         results.append({
             "id": str(pred["_id"]),
             "score": pred["score"],
             "category": pred["category"],
             "recommendations": formatted_recommendations,
-            "face_image_path": pred.get("face_image_path"),  # Include face image path
-            "jewelry_image_path": pred.get("jewelry_image_path"),  # Include jewelry image path
+            "face_image_path": pred.get("face_image_path"),
+            "jewelry_image_path": pred.get("jewelry_image_path"),
             "timestamp": pred["timestamp"]
         })
 
