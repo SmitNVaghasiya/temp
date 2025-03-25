@@ -1,9 +1,11 @@
 # main.py
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from dotenv import load_dotenv
 import uvicorn
 from api.routes import auth, predictions, history
+from fastapi.templating import Jinja2Templates
+from fastapi.responses import HTMLResponse
 from keep_alive import start_keep_alive
 
 # Load environment variables
@@ -16,15 +18,17 @@ app = FastAPI(
     version="1.0.0",
 )
 
+templates = Jinja2Templates(directory="templates")
+
 # Include routers
 app.include_router(auth.router)
 app.include_router(predictions.router)
 app.include_router(history.router)
 
-# Home endpoint
-@app.get('/')
-async def home():
-    return {"Message": "Welcome to Jewelify home page"}
+# Serve the index.html page at the root URL
+@app.get("/", response_class=HTMLResponse)
+async def read_root(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
 
 # Health check endpoint for keep-alive
 @app.get('/health')
