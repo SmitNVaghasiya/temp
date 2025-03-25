@@ -30,7 +30,7 @@ app = FastAPI(
 
 # Set the limiter on the app
 app.state.limiter = limiter
-app.add_middleware(limiter.middleware)
+# Removed: app.add_middleware(limiter.middleware)  # This was incorrect
 
 # Middleware to log all requests
 @app.middleware("http")
