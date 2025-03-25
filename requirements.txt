@@ -6,15 +6,14 @@ pillow==11.1.0
 python-multipart==0.0.20
 nest_asyncio==1.6.0
 python-dotenv==1.0.1
-pydantic[email]==2.9.2  # Downgraded to latest stable version and added [email] extra
-scikit-learn==1.5.2  # Downgraded to latest stable version
+pydantic[email]==2.9.2  # Includes email-validator for EmailStr
+scikit-learn==1.5.2
 pymongo[srv]==4.11.1
 passlib[bcrypt]==1.7.4
-python-jose==3.3.0  # Downgraded to latest stable version
+python-jose==3.3.0
 pyyaml==6.0.2
 requests==2.32.3
 twilio==9.5.1
 phonenumbers==8.13.47
 slowapi==0.1.9
 emails==0.6
-# Removed email-validator==2.2.0 as it's included in pydantic[email]
