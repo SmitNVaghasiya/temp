@@ -28,6 +28,8 @@ async def predict(
     jewelry_image_path: str = Form(...),
     current_user: dict = Depends(get_current_user)
 ):
+    global predictor  # Declare global at the beginning to avoid SyntaxError
+
     # Validate file paths
     if not face_image_path or not jewelry_image_path:
         raise HTTPException(status_code=400, detail="Face and jewelry image paths must not be empty")
@@ -35,7 +37,6 @@ async def predict(
     # Check if predictor is initialized
     if predictor is None:
         # Attempt to reinitialize the predictor
-        global predictor
         predictor = get_predictor(
             os.getenv("MODEL_PATH", "rl_jewelry_model.keras"),
             os.getenv("SCALER_PATH", "scaler.pkl"),
