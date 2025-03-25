@@ -11,7 +11,7 @@ from bson import ObjectId
 from dotenv import load_dotenv
 import random
 import string
-from emails.template import EmailTemplate
+from emails.template import Template  # Changed from EmailTemplate to Template
 from emails import Message
 
 # Load environment variables
@@ -32,7 +32,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 # SMTP configuration for sending emails
 SMTP_HOST = os.getenv("SMTP_HOST")
 SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
-SMTP_USER = os.getenv("SMTP_USER")
+SMTP_USERNAME = os.getenv("SMTP_USERNAME")  # Changed from SMTP_USER to SMTP_USERNAME
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 
 # Constants
@@ -110,34 +110,50 @@ def generate_verification_code(length=6):
 
 # Function to send verification code via email
 async def send_verification_email(email: str, code: str):
-    if not all([SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD]):
+    if not all([SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD]):
         logger.error("SMTP credentials not found. Check environment variables.")
         raise HTTPException(status_code=500, detail="SMTP configuration error")
 
+    # Create the email template (using an inline template for simplicity)
+    try:
+        template = Template(
+            html_template="""
+            <h1>Jewelify Email Verification</h1>
+            <p>Your verification code is: <strong>{{ code }}</strong></p>
+            <p>This code will expire in 10 minutes.</p>
+            <p>If you did not request this code, please ignore this email.</p>
+            """,
+            context={"code": code}
+        )
+    except Exception as e:
+        logger.error(f"Failed to create email template: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to create email template")
+
+    # Create the email message
     message = Message(
         subject="Jewelify Email Verification Code",
-        mail_from=("Jewelify", SMTP_USER),
+        mail_from=("Jewelify", SMTP_USERNAME),
         mail_to=email,
-        text=f"Your verification code for Jewelify is: {code}",
-        html=f"<p>Your verification code for Jewelify is: <strong>{code}</strong></p>"
     )
+    message.html = template.render()
 
+    # Send the email
     try:
         response = message.send(
             smtp={
                 "host": SMTP_HOST,
                 "port": SMTP_PORT,
                 "tls": True,
-                "user": SMTP_USER,
+                "user": SMTP_USERNAME,
                 "password": SMTP_PASSWORD
             }
         )
         if response.status_code not in [250]:
-            logger.error(f"Failed to send email: {response}")
-            raise HTTPException(status_code=500, detail="Failed to send verification email")
-        logger.info(f"Verification email sent to {email}")
+            logger.error(f"Failed to send email: {response.status_text}")
+            raise HTTPException(status_code=500, detail=f"Failed to send verification email: {response.status_text}")
+        logger.info(f"Verification email sent to {email} with code {code}")
     except Exception as e:
-        logger.error(f"Error sending email: {e}")
+        logger.error(f"Error sending email: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error sending email: {str(e)}")
 
 # --- Endpoints ---
@@ -164,7 +180,7 @@ async def send_verification_email_endpoint(request: EmailVerificationRequest):
     db = client["jewelify"]
     verification_record = db["verifications"].find_one({"email": email})
     if verification_record:
-        attempts = verification_record.get("attempts", 0)
+        attempts = verification_record.get("attempts", 0)  # Ensure attempts field exists
         if attempts >= MAX_EMAIL_ATTEMPTS:
             cooldown_expires = datetime.fromisoformat(verification_record["created_at"]) + timedelta(minutes=EMAIL_COOLDOWN_MINUTES)
             if datetime.utcnow() < cooldown_expires:
