@@ -1,7 +1,7 @@
 fastapi==0.115.10
 uvicorn==0.34.0
 tensorflow==2.18.0
-numpy==2.1.2
+numpy==2.2.4
 pillow==11.1.0
 python-multipart==0.0.20
 nest_asyncio==1.6.0
