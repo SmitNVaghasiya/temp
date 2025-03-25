@@ -1,19 +1,20 @@
 fastapi==0.115.10
 uvicorn==0.34.0
 tensorflow==2.18.0
-numpy==2.0.0  # Changed from 2.2.4 to 2.0.0 to resolve conflict with tensorflow
+numpy==2.0.0  # Compatible with tensorflow==2.18.0
 pillow==11.1.0
 python-multipart==0.0.20
 nest_asyncio==1.6.0
 python-dotenv==1.0.1
-pydantic==2.10.6
-scikit-learn==1.6.1
+pydantic[email]==2.9.2  # Downgraded to latest stable version and added [email] extra
+scikit-learn==1.5.2  # Downgraded to latest stable version
 pymongo[srv]==4.11.1
 passlib[bcrypt]==1.7.4
-python-jose==3.4.0
+python-jose==3.3.0  # Downgraded to latest stable version
 pyyaml==6.0.2
 requests==2.32.3
 twilio==9.5.1
 phonenumbers==8.13.47
 slowapi==0.1.9
 emails==0.6
+# Removed email-validator==2.2.0 as it's included in pydantic[email]
