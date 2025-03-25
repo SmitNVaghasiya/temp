@@ -57,8 +57,8 @@ class UserRegister(BaseModel):
 
     @validator("password")
     def validate_password(cls, v):
-        if len(v) < 8:
-            raise ValueError("Password must be at least 8 characters long")
+        if len(v) < 6:
+            raise ValueError("Password must be at least 6 characters long")
         return v
 
 class UserOut(BaseModel):
