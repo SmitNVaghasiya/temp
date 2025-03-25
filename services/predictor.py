@@ -85,9 +85,28 @@ class JewelryRLPredictor:
             print("❌ Error: Q-values length does not match jewelry list.")
             return scaled_score, category, []
 
+        # Normalize Q-values to a 0-1 scale and compute categories for recommendations
+        q_values_normalized = (q_values - np.min(q_values)) / (np.max(q_values) - np.min(q_values))
         top_indices = np.argsort(q_values)[::-1]
-        top_recommendations = [(self.jewelry_names[idx], q_values[idx]) for idx in top_indices[:10]]
-        recommendations = [name for name, _ in top_recommendations]
+        recommendations = []
+        for idx in top_indices[:10]:
+            score = q_values_normalized[idx]
+            # Compute category based on the normalized score
+            if score >= 0.8:
+                rec_category = "Very Good"
+            elif score >= 0.6:
+                rec_category = "Good"
+            elif score >= 0.4:
+                rec_category = "Neutral"
+            elif score >= 0.2:
+                rec_category = "Bad"
+            else:
+                rec_category = "Very Bad"
+            recommendations.append({
+                "name": self.jewelry_names[idx],
+                "score": float(score),  # Convert to float for JSON serialization
+                "category": rec_category
+            })
         return scaled_score, category, recommendations
 
 def get_predictor(model_path, scaler_path, pairwise_features_path):
