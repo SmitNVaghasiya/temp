@@ -4,6 +4,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 import logging
 from bson import ObjectId
+import numpy as np  # Import numpy to handle np.float32
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -80,13 +81,26 @@ def save_prediction(score, category, recommendations, user_id, face_image_path, 
         email = user.get("email")
         mobileNo = user.get("mobileNo")  # Keep mobileNo for future use
 
+        # Convert the main score to a native Python float
+        score = float(score) if isinstance(score, (np.floating, np.integer)) else score
+
+        # Convert all recommendation scores to native Python float
+        converted_recommendations = [
+            {
+                "name": rec["name"],
+                "score": float(rec["score"]) if isinstance(rec["score"], (np.floating, np.integer)) else rec["score"],
+                "category": rec["category"]
+            }
+            for rec in recommendations
+        ]
+
         prediction = {
             "user_id": ObjectId(user_id),
             "email": email,  # Store the email
             "mobileNo": mobileNo,  # Store mobileNo for future use (optional)
             "score": score,
             "category": category,
-            "recommendations": recommendations,
+            "recommendations": converted_recommendations,
             "face_image_path": face_image_path,  # Store the local path
             "jewelry_image_path": jewelry_image_path,  # Store the local path
             "timestamp": datetime.utcnow().isoformat()
