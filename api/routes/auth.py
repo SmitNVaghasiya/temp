@@ -11,7 +11,8 @@ from bson import ObjectId
 from dotenv import load_dotenv
 import random
 import string
-from emails import Message  # We only need Message
+from emails import Message
+from jinja2 import Environment, BaseLoader  # Import Jinja2 for template rendering
 
 # Load environment variables
 load_dotenv()
@@ -31,7 +32,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 # SMTP configuration for sending emails
 SMTP_HOST = os.getenv("SMTP_HOST")
 SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
-SMTP_USERNAME = os.getenv("SMTP_USER")  # Changed to match .env variable name
+SMTP_USERNAME = os.getenv("SMTP_USER")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 
 # Constants
@@ -120,12 +121,16 @@ async def send_verification_email(email: str, code: str):
     <p>This code will expire in 10 minutes.</p>
     <p>If you did not request this code, please ignore this email.</p>
     """
+    # Render the template using Jinja2
+    env = Environment(loader=BaseLoader())
+    template = env.from_string(html_template)
+    rendered_html = template.render(code=code)  # Render the template with the code variable
+
     message = Message(
         subject="Jewelify Email Verification Code",
         mail_from=("Jewelify", SMTP_USERNAME),
         mail_to=email,
-        html=html_template,  # Pass the HTML template directly
-        context={"code": code}  # Pass the context for Jinja2 rendering
+        html=rendered_html  # Pass the rendered HTML
     )
 
     # Send the email
