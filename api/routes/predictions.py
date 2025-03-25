@@ -4,6 +4,7 @@ from services.database import save_prediction, get_prediction_by_id
 from api.dependencies import get_current_user
 import os
 import logging
+import numpy as np  # Import numpy to handle np.float32
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -102,12 +103,23 @@ async def predict(
         logger.error(f"Failed to save prediction: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to save prediction: {str(e)}")
     
+    # Convert score and recommendation scores to native Python float for JSON serialization
+    score = float(score) if isinstance(score, (np.floating, np.integer)) else score
+    converted_recommendations = [
+        {
+            "name": rec["name"],
+            "score": float(rec["score"]) if isinstance(rec["score"], (np.floating, np.integer)) else rec["score"],
+            "category": rec["category"]
+        }
+        for rec in recommendations
+    ]
+
     logger.info(f"Prediction successful for user {current_user['_id']}, prediction_id: {prediction_id}")
     return {
         "prediction_id": prediction_id,
         "score": score,
         "category": category,
-        "recommendations": recommendations,
+        "recommendations": converted_recommendations,
         "face_image_path": face_image_path,
         "jewelry_image_path": jewelry_image_path
     }
