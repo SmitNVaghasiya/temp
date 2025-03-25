@@ -3,10 +3,10 @@ from fastapi import FastAPI, Request
 from dotenv import load_dotenv
 import uvicorn
 from api.routes import auth, predictions, history
-from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse
 from keep_alive import start_keep_alive
 import logging
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 # Configure logging
 logging.basicConfig(
@@ -18,6 +18,9 @@ logger = logging.getLogger(__name__)
 # Load environment variables
 load_dotenv()
 
+# Initialize rate limiter
+limiter = Limiter(key_func=get_remote_address)
+
 # FastAPI app
 app = FastAPI(
     title="Jewelify API",
@@ -25,7 +28,9 @@ app = FastAPI(
     version="1.0.0",
 )
 
-templates = Jinja2Templates(directory="templates")
+# Set the limiter on the app
+app.state.limiter = limiter
+app.add_middleware(limiter.middleware)
 
 # Middleware to log all requests
 @app.middleware("http")
@@ -39,11 +44,6 @@ async def log_requests(request: Request, call_next):
 app.include_router(auth.router)
 app.include_router(predictions.router)
 app.include_router(history.router)
-
-# Serve the index.html page at the root URL
-@app.get("/", response_class=HTMLResponse)
-async def read_root(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
 
 # Health check endpoint for keep-alive
 @app.get('/health')

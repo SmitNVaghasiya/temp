@@ -50,9 +50,22 @@ def save_prediction(score, category, recommendations, user_id, face_image_path, 
 
     try:
         db = client["jewelify"]
-        collection = db["recommendations"]
+        users_collection = db["users"]
+        recommendations_collection = db["recommendations"]
+
+        # Fetch the user's email based on user_id
+        user = users_collection.find_one({"_id": ObjectId(user_id)})
+        if not user:
+            logger.error(f"User with ID {user_id} not found")
+            return None
+
+        email = user.get("email")
+        mobileNo = user.get("mobileNo")  # Keep mobileNo for future use
+
         prediction = {
             "user_id": ObjectId(user_id),
+            "email": email,  # Store the email
+            "mobileNo": mobileNo,  # Store mobileNo for future use (optional)
             "score": score,
             "category": category,
             "recommendations": recommendations,
@@ -60,7 +73,7 @@ def save_prediction(score, category, recommendations, user_id, face_image_path, 
             "jewelry_image_path": jewelry_image_path,  # Store the local path
             "timestamp": datetime.utcnow().isoformat()
         }
-        result = collection.insert_one(prediction)
+        result = recommendations_collection.insert_one(prediction)
         logger.info(f"✅ Saved prediction with ID: {result.inserted_id}")
         return str(result.inserted_id)
     except Exception as e:
@@ -102,6 +115,8 @@ def get_prediction_by_id(prediction_id, user_id):
 
         result = {
             "id": str(prediction["_id"]),
+            "email": prediction["email"],  # Include email
+            "mobileNo": prediction.get("mobileNo"),  # Include mobileNo for future use (optional)
             "score": prediction["score"],
             "category": prediction["category"],
             "recommendations": image_data,
@@ -149,6 +164,8 @@ def get_user_predictions(user_id):
 
             results.append({
                 "id": str(prediction["_id"]),
+                "email": prediction["email"],  # Include email
+                "mobileNo": prediction.get("mobileNo"),  # Include mobileNo for future use (optional)
                 "score": prediction["score"],
                 "category": prediction["category"],
                 "recommendations": image_data,

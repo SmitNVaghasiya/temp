@@ -1,29 +1,22 @@
-# models/user.py
 from bson import ObjectId
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, EmailStr
 
 class UserRegister(BaseModel):
     username: str = Field(..., min_length=3, max_length=50)
-    mobileNo: str = Field(..., min_length=10, max_length=13)
+    email: EmailStr = Field(...)
     password: str = Field(..., min_length=6)
-    otp: str = Field(..., min_length=6, max_length=6)
-
-    @field_validator("mobileNo")
-    def validate_mobile(cls, v):
-    # Option 1: Allow a leading plus, then digits
-        import re
-        if not re.match(r"^\+?\d+$", v):
-            raise ValueError("Mobile number must contain only digits (optionally with a leading +)")
-        return v
+    verification_code: str = Field(..., min_length=6, max_length=6)
+    mobileNo: str | None = None  # Keep for future use
 
 class UserLogin(BaseModel):
-    username_or_mobile: str = Field(..., alias="username")
+    username_or_email: str = Field(..., alias="username")
     password: str = Field(...)
 
 class UserOut(BaseModel):
     id: str
     username: str
-    mobileNo: str
+    email: str
+    mobileNo: str | None  # Keep for future use
     created_at: str
 
     class Config:
