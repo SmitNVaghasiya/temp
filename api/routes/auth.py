@@ -11,8 +11,7 @@ from bson import ObjectId
 from dotenv import load_dotenv
 import random
 import string
-from emails.template import Template  # Changed from EmailTemplate to Template
-from emails import Message
+from emails import Message  # We only need Message
 
 # Load environment variables
 load_dotenv()
@@ -32,7 +31,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 # SMTP configuration for sending emails
 SMTP_HOST = os.getenv("SMTP_HOST")
 SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
-SMTP_USERNAME = os.getenv("SMTP_USERNAME")  # Changed from SMTP_USER to SMTP_USERNAME
+SMTP_USERNAME = os.getenv("SMTP_USERNAME")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 
 # Constants
@@ -114,28 +113,20 @@ async def send_verification_email(email: str, code: str):
         logger.error("SMTP credentials not found. Check environment variables.")
         raise HTTPException(status_code=500, detail="SMTP configuration error")
 
-    # Create the email template (using an inline template for simplicity)
-    try:
-        template = Template(
-            html_template="""
-            <h1>Jewelify Email Verification</h1>
-            <p>Your verification code is: <strong>{{ code }}</strong></p>
-            <p>This code will expire in 10 minutes.</p>
-            <p>If you did not request this code, please ignore this email.</p>
-            """,
-            context={"code": code}
-        )
-    except Exception as e:
-        logger.error(f"Failed to create email template: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to create email template")
-
-    # Create the email message
+    # Create the email message with an inline HTML template
+    html_template = """
+    <h1>Jewelify Email Verification</h1>
+    <p>Your verification code is: <strong>{{ code }}</strong></p>
+    <p>This code will expire in 10 minutes.</p>
+    <p>If you did not request this code, please ignore this email.</p>
+    """
     message = Message(
         subject="Jewelify Email Verification Code",
         mail_from=("Jewelify", SMTP_USERNAME),
         mail_to=email,
+        html=html_template,  # Pass the HTML template directly
+        context={"code": code}  # Pass the context for Jinja2 rendering
     )
-    message.html = template.render()
 
     # Send the email
     try:
