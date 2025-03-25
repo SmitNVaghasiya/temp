@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 import random
 import string
 from emails import Message
-from jinja2 import Environment, BaseLoader  # Import Jinja2 for template rendering
+from jinja2 import Environment, BaseLoader
 
 # Load environment variables
 load_dotenv()
@@ -42,10 +42,10 @@ EMAIL_COOLDOWN_MINUTES = 5  # Cooldown period after max attempts (in minutes)
 # Pydantic models
 class UserRegister(BaseModel):
     username: str
-    email: EmailStr  # Use EmailStr for email validation
+    email: EmailStr
     password: str
-    verification_code: str  # Renamed from 'otp' to 'verification_code' for clarity
-    mobileNo: str | None = None  # Keep mobileNo for future use, but make it optional
+    verification_code: str
+    mobileNo: str | None = None
 
     @validator("username")
     def validate_username(cls, v):
@@ -65,7 +65,7 @@ class UserOut(BaseModel):
     id: str
     username: str
     email: str
-    mobileNo: str | None  # Keep mobileNo for future use
+    mobileNo: str | None
     created_at: str
     access_token: str
 
@@ -124,13 +124,13 @@ async def send_verification_email(email: str, code: str):
     # Render the template using Jinja2
     env = Environment(loader=BaseLoader())
     template = env.from_string(html_template)
-    rendered_html = template.render(code=code)  # Render the template with the code variable
+    rendered_html = template.render(code=code)
 
     message = Message(
         subject="Jewelify Email Verification Code",
         mail_from=("Jewelify", SMTP_USERNAME),
         mail_to=email,
-        html=rendered_html  # Pass the rendered HTML
+        html=rendered_html
     )
 
     # Send the email
@@ -176,7 +176,7 @@ async def send_verification_email_endpoint(request: EmailVerificationRequest):
     db = client["jewelify"]
     verification_record = db["verifications"].find_one({"email": email})
     if verification_record:
-        attempts = verification_record.get("attempts", 0)  # Ensure attempts field exists
+        attempts = verification_record.get("attempts", 0)
         if attempts >= MAX_EMAIL_ATTEMPTS:
             cooldown_expires = datetime.fromisoformat(verification_record["created_at"]) + timedelta(minutes=EMAIL_COOLDOWN_MINUTES)
             if datetime.utcnow() < cooldown_expires:
@@ -186,7 +186,6 @@ async def send_verification_email_endpoint(request: EmailVerificationRequest):
                     detail=f"Too many email verification attempts. Please wait {int(remaining_seconds)} seconds before trying again."
                 )
             else:
-                # Reset attempts after cooldown
                 attempts = 0
 
         # Increment attempts
@@ -203,7 +202,7 @@ async def send_verification_email_endpoint(request: EmailVerificationRequest):
 
     # Store the verification code in MongoDB
     try:
-        db["verifications"].delete_one({"email": email})  # Remove old record
+        db["verifications"].delete_one({"email": email})
         db["verifications"].insert_one({
             "email": email,
             "code": code,
@@ -260,10 +259,8 @@ async def register(user: UserRegister):
     if db["users"].find_one({"email": user.email}):
         raise HTTPException(status_code=400, detail="Email already exists")
 
-    # Verify the email verification code
-    verification_record = db["verifications"].find_one({"email": user.email})
-    if not verification_record or verification_record["code"] != user.verification_code:
-        raise HTTPException(status_code=400, detail="Invalid or expired verification code")
+    # Removed redundant verification step since /verify-email-code already verified the code
+    # The verification record has already been deleted by /verify-email-code
 
     # Hash password
     hashed_password = hash_password(user.password)
@@ -272,7 +269,7 @@ async def register(user: UserRegister):
     user_data = {
         "username": user.username,
         "email": user.email,
-        "mobileNo": user.mobileNo,  # Keep mobileNo for future use
+        "mobileNo": user.mobileNo,
         "hashed_password": hashed_password,
         "created_at": datetime.utcnow().isoformat(),
     }
@@ -284,8 +281,7 @@ async def register(user: UserRegister):
         logger.error(f"Error registering user: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to create user: {str(e)}")
     
-    # Delete the verification record after successful registration
-    db["verifications"].delete_one({"email": user.email})
+    # No need to delete the verification record here since it was already deleted by /verify-email-code
 
     return {
         "id": str(result.inserted_id),
@@ -326,7 +322,7 @@ async def get_user_details(current_user: dict = Depends(get_current_user)):
             "id": str(current_user["_id"]),
             "username": current_user["username"],
             "email": current_user["email"],
-            "mobileNo": current_user.get("mobileNo"),  # Keep mobileNo for future use
+            "mobileNo": current_user.get("mobileNo"),
             "created_at": current_user["created_at"]
         }
     except Exception as e:
