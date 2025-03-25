@@ -1,4 +1,3 @@
-# main.py
 import os
 from fastapi import FastAPI, Request
 from dotenv import load_dotenv
@@ -7,6 +6,14 @@ from api.routes import auth, predictions, history
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 from keep_alive import start_keep_alive
+import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
@@ -19,6 +26,14 @@ app = FastAPI(
 )
 
 templates = Jinja2Templates(directory="templates")
+
+# Middleware to log all requests
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    logger.info(f"Incoming request: {request.method} {request.url}")
+    response = await call_next(request)
+    logger.info(f"Response status: {response.status_code}")
+    return response
 
 # Include routers
 app.include_router(auth.router)

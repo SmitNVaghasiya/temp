@@ -3,6 +3,11 @@ from services.predictor import get_predictor, predict_compatibility
 from services.database import save_prediction, get_prediction_by_id
 from api.dependencies import get_current_user
 import os
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/predictions", tags=["predictions"])
 predictor = get_predictor(
@@ -29,8 +34,29 @@ async def predict(
         if predictor is None:
             raise HTTPException(status_code=500, detail="Model is not loaded properly")
 
-    if not face.content_type.startswith('image/') or not jewelry.content_type.startswith('image/'):
-        raise HTTPException(status_code=400, detail="Uploaded files must be images")
+    # Log the content types of the uploaded files
+    logger.info(f"Received face file with content_type: {face.content_type}")
+    logger.info(f"Received jewelry file with content_type: {jewelry.content_type}")
+
+    # Check if the content type is an image or a fallback type with a valid image extension
+    valid_image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp'}
+    face_extension = os.path.splitext(face.filename)[1].lower()
+    jewelry_extension = os.path.splitext(jewelry.filename)[1].lower()
+
+    is_face_valid = (
+        face.content_type.startswith('image/') or
+        (face.content_type == 'application/octet-stream' and face_extension in valid_image_extensions)
+    )
+    is_jewelry_valid = (
+        jewelry.content_type.startswith('image/') or
+        (jewelry.content_type == 'application/octet-stream' and jewelry_extension in valid_image_extensions)
+    )
+
+    if not is_face_valid or not is_jewelry_valid:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Uploaded files must be images. Face content_type: {face.content_type}, Jewelry content_type: {jewelry.content_type}"
+        )
 
     try:
         face_data = await face.read()
